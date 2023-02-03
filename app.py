@@ -71,7 +71,7 @@ def construct_encode_command(book:Book, quality:C.Quality, container:C.Container
 class App:
     def __init__(self, args, use_nested_chapter_names=False):
         self.quiet = args.quiet
-        self._progress_iterator = itertools.cycle(('—', '|'))
+
         if not os.path.isdir(args.output):
             self.print(f'Error: output is not a directory: {args.output}')
             sys.exit(1)
@@ -91,6 +91,7 @@ class App:
                     print(f'Error: input file not found: {file}')
                     sys.exit(1)
 
+        self._progress_iterator = itertools.cycle(('—', '|'))
         self._executor = ThreadPoolExecutor()
         self._running = False
         self._books = []
@@ -100,23 +101,12 @@ class App:
         self._cancel_event = Event()
         self._last_print_was_progress = False
 
-        self.done = False
         self.input_files = args.inputs
         self.output_dir = args.output
         self.container = args.container
         self.quality = args.quality
         self.max_threads = args.threads
         self.use_nested_chapter_names = use_nested_chapter_names
-
-    def cancellable_exec(self, *args):
-        if self.cancelled:
-            raise OperationCancelled()
-        with Popen(args=args, stdin=DEVNULL, stdout=DEVNULL, stderr=DEVNULL) as process:
-            while process.poll() == None:
-                if self.cancellable_sleep():
-                    raise OperationCancelled()
-                if process.returncode:
-                    raise CalledProcessError(process.returncode, process.args)
 
     def _transcode_book(self, book: Book) -> str:
         #ensure output dir
@@ -252,6 +242,16 @@ class App:
         self.print('\nCancelling, please wait…\n')
         self._cancel_event.set()
         self._executor.shutdown(wait=False, cancel_futures=True)
+
+    def cancellable_exec(self, *args):
+        if self.cancelled:
+            raise OperationCancelled()
+        with Popen(args=args, stdin=DEVNULL, stdout=DEVNULL, stderr=DEVNULL) as process:
+            while process.poll() == None:
+                if self.cancellable_sleep():
+                    raise OperationCancelled()
+            if process.returncode:
+                raise CalledProcessError(process.returncode, process.args)
 
     def cancellable_sleep(self, duration=C.POLLING_INTERVAL) -> bool:
         if duration == 0:
