@@ -1,0 +1,40 @@
+#!/usr/bin/python
+import sys
+from argparse import ArgumentParser
+from signal import signal, SIGINT
+
+import constants as C
+from app import App
+from util import EnumAction
+
+parser = ArgumentParser(
+    prog='aaxc2opus',
+    description='Use information from audible-cli and audnexus to transcode aaxc files into mp4/ogg/webm opus with complete metadata.'
+)
+
+parser.add_argument('-t', '--threads',
+                    type=int,
+                    default=C.DEFAULT_THREAD_LIMIT,
+                    help='max number of processing threads')
+parser.add_argument('-c', '--container',
+                    type=C.Container,
+                    default=C.Container.WEBM,
+                    action=EnumAction,
+                    help='output file container type')
+parser.add_argument('-q', '--quality',
+                    type=C.Quality,
+                    default=C.Quality.MONO_VOICE,
+                    action=EnumAction,
+                    help='output file opus quality')
+parser.add_argument('-s', '--quiet',
+                    action='store_true',
+                    help='silence output')
+parser.add_argument('output',
+                    help='output directory')
+parser.add_argument('inputs',
+                    nargs='+',
+                    help='input file(s) or a single directory')
+
+app = App(parser.parse_args())
+signal(SIGINT, lambda *_: app.cancel())
+sys.exit(app.run())
